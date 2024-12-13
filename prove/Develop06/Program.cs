@@ -2,45 +2,54 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-public class Program
+class Program
 {
-    public static void Main(string[] args)
+    static List<Goal> goals = new List<Goal>();
+    static int totalScore = 0;
+    static string saveDirectory = "SavedGoals";
+
+    static void Main(string[] args)
     {
-        List<Goal> goals = new List<Goal>();
-        int totalPoints = 0;
+        bool exit = false;
 
-        while (true)
+        while (!exit)
         {
-            Console.WriteLine("\n--- Goal Tracker ---");
-            Console.WriteLine("1. View Goals");
-            Console.WriteLine("2. Create a Goal");
-            Console.WriteLine("3. Record Progress");
-            Console.WriteLine("4. Save Goals");
-            Console.WriteLine("5. Load Goals");
-            Console.WriteLine("6. Exit");
-            Console.Write("Select an option: ");
+            Console.WriteLine($"\n--- Eternal Quest ---");
+            Console.WriteLine($"Total Points: {totalScore}");
+            Console.WriteLine("1. Create a Goal");
+            Console.WriteLine("2. Record Event");
+            Console.WriteLine("3. Show Goals");
+            Console.WriteLine("4. Show Score");
+            Console.WriteLine("5. Save Goals");
+            Console.WriteLine("6. Load Goals");
+            Console.WriteLine("7. Exit");
 
+            Console.Write("Choose an option: ");
             string choice = Console.ReadLine();
 
             switch (choice)
             {
                 case "1":
-                    ViewGoals(goals, totalPoints);
+                    CreateGoal();
                     break;
                 case "2":
-                    CreateGoal(goals);
+                    RecordEvent();
                     break;
                 case "3":
-                    totalPoints = RecordProgress(goals, totalPoints);
+                    ShowGoals();
                     break;
                 case "4":
-                    SaveGoals(goals);
+                    Console.WriteLine($"Total Score: {totalScore}");
                     break;
                 case "5":
-                    goals = LoadGoals();
+                    SaveGoals();
                     break;
                 case "6":
-                    return;
+                    LoadGoals();
+                    break;
+                case "7":
+                    exit = true;
+                    break;
                 default:
                     Console.WriteLine("Invalid option. Try again.");
                     break;
@@ -48,105 +57,143 @@ public class Program
         }
     }
 
-    // Displays the list of goals and the total points accumulated
-    private static void ViewGoals(List<Goal> goals, int totalPoints)
+    static void CreateGoal()
     {
-        Console.WriteLine("\nYour Goals:");
-        foreach (var goal in goals)
-        {
-            Console.WriteLine(goal);
-        }
-        Console.WriteLine($"Total Points: {totalPoints}");
-    }
+        Console.WriteLine("\nChoose Goal Type:");
+        Console.WriteLine("1. Simple Goal");
+        Console.WriteLine("2. Eternal Goal");
+        Console.WriteLine("3. Checklist Goal");
+        Console.Write("Choose an option: ");
+        string type = Console.ReadLine();
 
-    // Prompts the user to create a new goal and adds it to the list
-    private static void CreateGoal(List<Goal> goals)
-    {
-        Console.Write("Enter the name of the goal: ");
+        Console.Write("Enter Goal Name: ");
         string name = Console.ReadLine();
-        Console.Write("Enter the points for this goal: ");
+        Console.Write("Enter Goal Description: ");
+        string description = Console.ReadLine();
+        Console.Write("Enter Points: ");
         int points = int.Parse(Console.ReadLine());
 
-        goals.Add(new Goal(name, points));
-        Console.WriteLine("Goal added successfully.");
+        if (type == "1")
+        {
+            goals.Add(new SimpleGoal(name, description, points));
+        }
+        else if (type == "2")
+        {
+            goals.Add(new EternalGoal(name, description, points));
+        }
+        else if (type == "3")
+        {
+            Console.Write("Enter Target Count: ");
+            int target = int.Parse(Console.ReadLine());
+            goals.Add(new ChecklistGoal(name, description, points, target));
+        }
+
+        Console.WriteLine("Goal created successfully!");
     }
 
-    // Records progress for a selected goal and updates total points
-    private static int RecordProgress(List<Goal> goals, int totalPoints)
+    static void RecordEvent()
     {
-        Console.WriteLine("\nSelect a goal to record progress:");
+        Console.WriteLine("\nChoose a goal to record an event:");
         for (int i = 0; i < goals.Count; i++)
         {
-            Console.WriteLine($"{i + 1}. {goals[i].Name}");
+            Console.WriteLine($"{i + 1}. {goals[i].Name} - {goals[i].GetProgress()}");
         }
 
-        int index = int.Parse(Console.ReadLine()) - 1;
-        if (index >= 0 && index < goals.Count)
+        Console.Write("Enter the goal number: ");
+        int choice = int.Parse(Console.ReadLine()) - 1;
+
+        if (choice >= 0 && choice < goals.Count)
         {
-            totalPoints += goals[index].Points;
-            Console.WriteLine("Progress recorded!");
+            int pointsGained = goals[choice].Points;
+            goals[choice].RecordEvent();
+
+            if (goals[choice].IsComplete())
+            {
+                Console.WriteLine($"\nCongratulations! You earned {pointsGained} points!");
+                totalScore += pointsGained;
+            }
+            else
+            {
+                Console.WriteLine("\nEvent recorded!");
+            }
         }
         else
         {
-            Console.WriteLine("Invalid selection.");
+            Console.WriteLine("Invalid choice.");
         }
-
-        return totalPoints;
     }
 
-    // Saves the list of goals to a file
-    private static void SaveGoals(List<Goal> goals)
+    static void ShowGoals()
     {
-        using (StreamWriter writer = new StreamWriter("savegame.txt"))
+        Console.WriteLine("\nGoals:");
+        foreach (var goal in goals)
         {
-            foreach (var goal in goals)
-            {
-                writer.WriteLine($"{goal.Name}|{goal.Points}");
-            }
+            Console.WriteLine($"{goal.Name} - {goal.GetProgress()}");
         }
-        Console.WriteLine("Goals saved successfully.");
     }
 
-    // Loads goals from the saved file and returns them as a list
-    private static List<Goal> LoadGoals()
+    static void SaveGoals()
     {
-        List<Goal> goals = new List<Goal>();
+        Console.Write("\nEnter the name of the file to save your goals (e.g., goals.txt): ");
+        string fileName = Console.ReadLine();
 
-        if (File.Exists("savegame.txt"))
+        // Ensure the file has a .txt extension
+        if (!fileName.EndsWith(".txt"))
         {
-            string[] lines = File.ReadAllLines("savegame.txt");
-            foreach (var line in lines)
-            {
-                string[] parts = line.Split('|');
-                goals.Add(new Goal(parts[0], int.Parse(parts[1])));
-            }
-            Console.WriteLine("Goals loaded successfully.");
+            fileName += ".txt";
+        }
+
+        string fullPath = Path.Combine(saveDirectory, fileName);
+
+        try
+        {   
+            GoalManager.SaveGoals(goals, fullPath);
+            Console.WriteLine($"Goals saved successfully to '{fullPath}'!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving file: {ex.Message}");
+        }
+    }
+
+    static void LoadGoals()
+    {
+        Console.WriteLine("\nSaved Goal Files:");
+
+        List<string> files = GoalManager.ListSavedFiles(saveDirectory);
+
+        if (files.Count == 0)
+        {
+        Console.WriteLine("No saved goals found.");
+        return;
+        }
+
+        //Display saved files
+        for (int i = 0; i < files.Count; i++)
+        {
+        Console.WriteLine($"{i + 1}. {Path.GetFileName(files[i])}");
+        }
+
+        Console.Write("\nEnter the name of the file to load (without extension): ");
+        string fileName = Console.ReadLine();
+
+        // Ensure the file has a .txt extension
+        if (!fileName.EndsWith(".txt"))
+        {
+            fileName += ".txt";
+        }
+
+        string fullPath = Path.Combine(saveDirectory, fileName);
+
+        if (File.Exists(fullPath))
+        {
+            goals = GoalManager.LoadGoals(fullPath);
+            Console.WriteLine($"Goals loaded successfully from '{fullPath}'!");
         }
         else
         {
-            Console.WriteLine("No saved goals found.");
+            Console.WriteLine($"File '{fileName}' does not exist in the directory '{saveDirectory}'.");
         }
-
-        return goals;
-    }
-}
-
-public class Goal
-{
-    // Properties to store the goal name and points
-    public string Name { get; set; }
-    public int Points { get; set; }
-
-    // Constructor to initialize a goal with its name and points
-    public Goal(string name, int points)
-    {
-        Name = name;
-        Points = points;
     }
 
-    // Returns a string representation of the goal
-    public override string ToString()
-    {
-        return $"{Name} - {Points} Points";
-    }
 }
